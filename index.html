@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="light only">
 <title>MARCOS - ALBUM DIGITAL</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
@@ -10,7 +11,9 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   html, body {
-    width: 100%; height: 100%;
+    width: 100%; 
+    height: 100%;
+    height: 100dvh;
     overflow: hidden;
     background: #1a1a1a;
     font-family: sans-serif;
@@ -19,6 +22,8 @@
   }
   
 	body {
+        height: 100dvh;
+        min-height: -webkit-fill-available; /* Truco extra para navegadores Apple */
 		background: linear-gradient(-45deg, #DCD021, #2BDC58, #4C79D9, #3AD4DB);
 		background-size: 400% 400%;
 		animation: gradient 15s ease infinite;
@@ -107,11 +112,14 @@
     display: none;
     position: fixed;
     inset: 0;
+    width: 100vw;
+    height: 100dvh;
     z-index: 9999;
     background: rgba(0,0,0,0.95);
     align-items: center;
     justify-content: center;
     touch-action: none;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
   #fs-modal.active { display: flex; }
@@ -120,8 +128,10 @@
   #fs-modal video {
     max-width: 100vw;
     max-height: 100vh;
+    max-height: 100dvh;
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     object-fit: contain;
     display: block;
   }
@@ -167,28 +177,7 @@
 </style>
 </head>
 <body>
-<script>
-    // Función para activar el modo pantalla completa
-    function activarPantallaCompleta() {
-        const elem = document.documentElement; // Selecciona toda la página
 
-        if (elem.requestFullscreen) {
-            elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) { /* Safari / Chrome / Opera / Edge Chromium */
-            elem.webkitRequestFullscreen();
-        } else if (elem.mozRequestFullScreen) { /* Firefox */
-            elem.mozRequestFullScreen();
-        } else if (elem.msRequestFullscreen) { /* IE11 / Edge antiguo */
-            elem.msRequestFullscreen();
-        }
-
-        // Opcional: Eliminar el listener después de que se active una vez
-        document.removeEventListener('click', activarPantallaCompleta);
-    }
-
-    // Escucha un clic en cualquier parte del documento
-    document.addEventListener('click', activarPantallaCompleta);
-</script>
 <div id="fs-modal">
   <button id="fs-close">✕</button>
   <div id="fs-content"></div>
