@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="color-scheme" content="light only">
+<title>MARCOS - ALBUM DIGITAL</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #1a1a1a;
+    font-family: sans-serif;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+	body {
+		background: linear-gradient(-45deg, #DCD021, #2BDC58, #4C79D9, #3AD4DB);
+		background-size: 400% 400%;
+		animation: gradient 15s ease infinite;
+	}
+
+	@keyframes gradient {
+		0% {
+			background-position: 0% 50%;
+		}
+		50% {
+			background-position: 100% 50%;
+		}
+		100% {
+			background-position: 0% 50%;
+		}
+	}
+  
+
+  /* ── Swiper wrapper ── */
+  .swiper {
+    width: 100%; height: 100%;
+  }
+
+  .swiper-slide {
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Polaroid card ── */
+  .card {
+    position: absolute;
+    background-color: #ffffff;
+    -webkit-background-color: #ffffff;
+    padding: 10px 10px 32px 10px;
+    box-shadow: 2px 4px 14px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.3);
+    cursor: pointer;
+    will-change: transform;
+    transition: box-shadow 0.15s;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-transform-style: flat;
+    transform-style: flat;
+    isolation: isolate;
+  }
+
+  .card:active { box-shadow: 4px 8px 24px rgba(0,0,0,0.6); }
+
+  .card .media-wrap {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: #333;
+    position: relative;
+    border-radius: 1px;
+  }
+
+  .card img,
+  .card video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+  }
+
+  .card .play-icon {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.75);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+
+  .card .play-icon::after {
+    content: '';
+    border-style: solid;
+    border-width: 8px 0 8px 16px;
+    border-color: transparent transparent transparent #333;
+    margin-left: 3px;
+  }
+
+  /* ── Pseudo-Fullscreen Modal ── */
+  #fs-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(0,0,0,0.95);
+    align-items: center;
+    justify-content: center;
+    touch-action: none;
+  }
+
+  #fs-modal.active { display: flex; }
+
+  #fs-modal img,
+  #fs-modal video {
+    max-width: 100vw;
+    max-height: 100vh;
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    display: block;
+  }
+
+  #fs-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    width: 36px; height: 36px;
+    background: rgba(255,255,255,0.2);
+    border: none; border-radius: 50%;
+    color: #fff; font-size: 20px; line-height: 36px; text-align: center;
+    cursor: pointer; z-index: 10000;
+  }
+
+  /* ── Lazy load placeholder ── */
+  .card .media-wrap::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #2a2a2a 25%, #333 50%, #2a2a2a 75%);
+    background-size: 200% 200%;
+    animation: shimmer 1.4s infinite;
+    z-index: 0;
+  }
+
+  .card img.loaded,
+  .card video.loaded { position: relative; z-index: 1; }
+
+  .card .media-wrap iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  @keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+</style>
+</head>
+<body>
+
+<div id="fs-modal">
+  <button id="fs-close">✕</button>
+  <div id="fs-content"></div>
+</div>
+
+<div class="swiper" id="mainSwiper">
+  <div class="swiper-wrapper" id="swiperWrapper"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script>
+// ─────────────────────────────────────────────
+//  CONFIG — Organiza tus fotos en 4 etapas de vida.
+//  Agrega/quita items en cada grupo.
+//  type: 'image' | 'video'
+//  El carrusel mostrará todas las etapas en orden cronológico.
+// ─────────────────────────────────────────────
+
+const LIFE_STAGES = [
+  {
+    label: 'Infancia',
+    items: [      
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/3x9w51fppywvu36kf19vs/1.jpeg?rlkey=gcmrnx8zzt794qhnel9baa0al&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/paqwdbeftu39sqjcyztqt/2.jpeg?rlkey=mtwwy6nfp52sqjzuvphc6ytwr&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/zft8846lfqrpfu75pqwho/3.jpeg?rlkey=mcl8zg3ofraotzuvthgimuaxe&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/13o8f52xt7m60wcnwwl00/6f457442-4d33-44a1-b738-6de4c13ad101.jpeg?rlkey=8sf7uh9b5cmuoxautvkehkmbh&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/3ebs1pa2wcan5zhzj1fpy/9df79961-bff0-41cb-9dff-4881b7b3281b.jpeg?rlkey=m72czwiq13uh1nwvweq3ssiag&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/z1fccfyv14ys2x9th00o0/b003d1f2-4d07-4958-907c-b39945cc4cef.jpeg?rlkey=u60orp3mf5ckvbye10xp6r1do&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/kuqwg9ygzd1mm3otx40lg/d7e40e6c-e441-4753-a152-3bf08e3f6bb8.jpeg?rlkey=fguco7ukpvx532lg1wwb660hy&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/meph5rl329stzt16wx1jy/IMG_0089.jpeg?rlkey=lyjvmicqfy9bqrneq3qmxjvtv&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/k1g303gvl84a88tud9e2b/IMG_0109.jpeg?rlkey=cmv4qf73phbw0x155eplca610&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/30ihjntgzguigkehadc58/IMG_0125.jpeg?rlkey=79wxn3tqogfl7mpl9j25n2m9r&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/2yq1nmw8ikpersf73jort/IMG_0151.jpeg?rlkey=f969ocdw3sv734sjxz5ywsd6c&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/1jiu1vwva4t0dwstxtyfh/IMG_0157.jpeg?rlkey=sk3kqwrebee21xym1temt3nd1&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/5mfuwca9w2uxgbhbqujmk/IMG_0165.jpeg?rlkey=u9yam6xpt7gdm49eq7wfsugcv&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/f0f661ob8ype7tbqm1zps/IMG_0179.jpeg?rlkey=qf2fnedkquabq7g2xsfoepuid&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/wln5ivmmbdi77dm43pgod/IMG_0181.jpeg?rlkey=le302imfgseepwntftxwmzru3&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/p35edcynvk7ykkkx8y1wb/IMG_0226.jpeg?rlkey=vbi8lboc38d1vm3raf4wzzhdu&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/gwfo57x937kfm8uso5bty/IMG_0229.jpeg?rlkey=4r4pcbcp3kp3es7xesbmiutxm&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/yelyfa6vknts5qujpji3t/IMG_0248.jpeg?rlkey=ej43p9uaa5gw85v4rrix1npon&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/d5zikrejlc98ivjzrmtho/IMG_0256.jpeg?rlkey=4p7r2a8j9hqbf9j5aiecsuou8&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/48z3i6gr06n70q0bsrfop/IMG_0246.jpeg?rlkey=l9kgb914yststa1mwkz9xrpjq&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/vxxf5rk5lncc6wbsaplc8/IMG_0263.jpeg?rlkey=8l6kryt5zg58y5nr6qfbycuis&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/jak6njjerl6ip0awo8zqu/IMG_0259.jpeg?rlkey=6094eehh7jv0sclbbc3zznitm&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/a5pcokttkh08y7lh2uzvj/IMG_0267.jpeg?rlkey=6k24w14v600se2oarrogu6xqs&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/z1goi1q0prg7z8f6bmiw9/IMG_0268.jpeg?rlkey=1r6byema692bgmfnhh4cbwyfv&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/mzrpcv2rz0xjuur5f06gm/IMG_0270.jpeg?rlkey=1sc6s0or450jep02nm2r4nqzv&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/d48hsaji1x1dcu7tj3ohx/IMG_4927.jpeg?rlkey=91pij21em3t2r530pp6nh5ac5&raw=1' },
+    ],
+  },
+  {
+    label: 'Adolescencia',
+    items: [
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/qsvleeu4zg4ndaf7cyz4s/1.jpeg?rlkey=umfko35yvd118slt7401nevtn&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/sw5qe04jq8ivoz9oumlaz/06574ca4-8f40-449f-ba63-86efd6a6d333.jpeg?rlkey=lpajv8zm2iuj6gm1k6vlmm40z&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/rxept6rh676mbsafu6rij/09b98e7a-c3a7-4207-acb3-75e781509aa2.jpeg?rlkey=1nbiovwbo6rw8cmijfcbbuaud&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/bh8awdumna3gi04aui3gs/1ed5181d-66c5-4dc1-918a-0733f3976935.jpeg?rlkey=8kqfu3wqufaetw5e35l2aw4k7&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/vmif6uw2bbezufwyvaiak/2.jpeg?rlkey=zwahn2v2zvv1cdlq9v1nn9n60&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/r6iihl06sa15gay1p4omq/22f4beba-469a-4433-a73f-787951e71a89.jpeg?rlkey=z3tih4vr3yc95x6s38s6mqm21&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/jjrj9n9q4asz3xaxly2x0/3.jpeg?rlkey=y6mzisq66fgpsy88jvb7hl7bn&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/tclh3w14zalnuh5v50d2h/314add10-5fc4-4f7e-90ae-9386fcd55526.jpeg?rlkey=lksrtt3oz1auuqxw1dr1bx5pk&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/v59m6hrzkcqjnuqn717rp/32eaf01a-f638-47a6-ba64-2b4936ee33c3.jpeg?rlkey=ph074l2nukm34bs7y89cs3nex&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/ovzctx5lcv6ld5wcvoqgg/38aacb3d-2c16-4dfb-aa17-767acb250cf8.jpeg?rlkey=ogyfryqd4je0h3e4cmm85sm44&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/7o2hs4ejjvekhuepebzo0/4.jpeg?rlkey=hkzzak7w0gkp3a1rnzx82yvap&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/zzflfobmlsw4i8gnt6qhe/4927e38d-6ae4-4928-b72d-e269293cb8e8.jpeg?rlkey=vt3d7ii6ad1et2r0yxn6961w3&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/ronk1i4ha0efvqcnur0yl/5.jpeg?rlkey=0j6psmnrwx6en6bqpon6janiz&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/0cwrh6fy2p1fj4h6afkcm/52a7788b-03a8-4047-af0f-45e84db0c783.jpeg?rlkey=l9hbfyvj2smdif13xn3cq4l3m&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/yyj7rrb7b6z7p11arp584/6fc7b790-5301-45ae-9f36-b388a6cb4300.jpeg?rlkey=zq0u7456vthms2pm8xc9ej8ww&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/j6mbpq9aoq2gmxi2ownsn/85c5792b-9a93-4b76-ae45-2caf72d45c55.jpeg?rlkey=sa2vzi9tr0219uk1uity4qwug&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/8t7jo4hr6346rtycmuaow/895b8b39-2d1e-48f5-b287-2c30b583d9e4.jpeg?rlkey=0n7zgnbpo2w0l5s1nm5wr46u4&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/zs34c3r8an4zksprw3ky6/8c436455-bb18-4431-8d60-e9a97cbe0e5d.jpeg?rlkey=26w37rr1xywn36qkn0n10gmdp&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/pr5vrwzw9584d30wf63s0/63d1140e-aa1e-4fba-bc37-a3e1fb14c685.jpeg?rlkey=3ggwllgtlyoff703w2ku82n0b&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/xmdnwvkck1fz7u57f9k5b/8e48cee6-25fb-4d7d-835b-7bbee7fd9499.jpeg?rlkey=mo741wi63kv2tfnei7gtonybk&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/j853xv520xtjn6tjy516o/ba76cbdd-d9bb-4c7e-8e9d-939812dbfc08.jpeg?rlkey=u7uef5gfu8fsarhf0laolgajn&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/xw1hy2lcse1ux1gm92u8o/cc41a21b-0b7d-4bbc-99ab-b106fa32c4bf.jpeg?rlkey=6pitm7lnj1avvjtote0iv0r5y&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/g4ocqq1z14b15wa1b90bu/IMG_0133.jpeg?rlkey=sabp0waerpuezsvzbu3tqyrpa&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/mkioznsbur8nlah7auaad/IMG_0139.jpeg?rlkey=6p6opjuxzludv5dkc90xdi5bd&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/9xk9syoakli6fgcp2h4zg/IMG_0173.jpeg?rlkey=rmxgbj657al7pum6ltlzpdsh4&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/vjncbh8ksy4bspo3x1h8d/IMG_0188.jpeg?rlkey=sbzf2zwlsvv7fe8gvx6uqzzf7&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/4pd3ck8qmao2gdlk8q7u2/IMG_0210.jpeg?rlkey=ats4dhu1lo55akfoli1ccxhuz/IMG_0237.jpeg?rlkey=gfjz1vwexhgf57gnqo89fw4mo&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/uqrmro3rnxux8flcpbbfe/IMG_0244.jpeg?rlkey=n3dfgtw52eer84u72gdomwtua&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/eysthc2b621qkvzjtoij9/IMG_0250.jpeg?rlkey=k5d7yr8rdcxl6nh0q2mcyviwm&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/iw7fki8ur4t4wn6jngewg/IMG_0570.jpeg?rlkey=mbtb7pkmhmj4bay70rob7njwe&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/fcaqifwputkzivlopnpls/IMG_0590.jpeg?rlkey=cvjjj3l9vtxkf6yhx9ihhoauk&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/0yg441ja4tllsog9mihs3/IMG_1648.jpeg?rlkey=r49x0rgoc4kdr6cdubr3kbv4z&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/kfov5vl8oyny81c88uxm1/IMG_1658.jpeg?rlkey=6kt8da771oc9dmt7riuauk9by&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/l30ix3t1kr21a09rifg0k/IMG_0952.jpeg?rlkey=dnzxtxjwjtczercbkyc30mmvu&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/vrzr6q9addnbgx7ht25h3/IMG_1707.jpeg?rlkey=x0l7kvk215pwlbkjdx07tpi06&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/od1ollzihykop2msx57cl/IMG_1811.jpeg?rlkey=588x7klpgm3ua1fq8gq9d4zax&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/0ldr42qv0bbb5hddf3607/IMG_1884.jpeg?rlkey=hvit619pg6lh1e3gnr0t5wcpw&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/0p8isr9c4x27dy8dyexbw/IMG_2269.jpeg?rlkey=sq7224mjn001lh8xvksg32m29&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/1s1yqvfwny5vwcqapvudy/IMG_2302.jpeg?rlkey=6bx9aro54rlj8ckbxxncomana&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/04vimw1jcl6ktbpswdqf3/IMG_2866.jpeg?rlkey=sdkjf29sd6nwhbq12jt350lyl&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/ij3llxj63215se0a1vag0/IMG_4182.jpeg?rlkey=doq1x1gx29zx0dwxqnnfdjji0&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/7e8x1b9e8isth7y6g83t3/IMG_4623.jpeg?rlkey=wmrouacm18qkeww8voza762at&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/flj481724lqu4g6rv34j2/IMG_4901.jpeg?rlkey=8mi1well5udtwzlqboxdgfoco&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/a8chqi1a8mrc5m2ri4lwi/IMG_5325.jpeg?rlkey=wt7lb20syeyoypvzqv7xnorli&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/t0awprymjrrjswy760lxp/IMG_6386.jpeg?rlkey=t9k8ouaae7g0d9t8qnph0iq4u&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/z7wosizqnt49h20cb4h9v/IMG_6388.jpeg?rlkey=5o4tn3xrz53pl5yzamjl3kz73&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/u3xw1t7qb2u2xr8hbwwoq/IMG_6908.jpeg?rlkey=nnmuwmavr7imst1a3ej6v7n9c&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/msvs9v0f7zbgwp3o0fz53/IMG_7194.jpeg?rlkey=hym167f7qn8c6jpj3iluw0wty&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/lit6afnp1vwox5e2hhy7o/IMG_7311.jpeg?rlkey=mj5s9xchbbkn9smd5fu9anytb&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/f6nc5m3uxpf3tucbb9h9s/IMG_7465.jpeg?rlkey=qnh2hog73llo5bs69juha8fqs&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/1m7ld00cqsmpzhv9omvx9/IMG_7701.jpeg?rlkey=d60keqmjd1c5tb9i78zq9j9ml&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/swcnc19ut2xfi9ykk4uyq/Screenshot_1.png?rlkey=05whn2ochopodfv3hbkxrsnig&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/740h16xtsu9cp0tw0xtwr/Screenshot_10.png?rlkey=s96apnk0klo5zj48wvyasaucn&raw=1' },
+    ],
+  },
+  {
+    label: 'Adultez',
+    items: [
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/tikyo1c5q7x2o7nb7od9a/1ffd4a4e-cb7b-4cf9-967b-03462f40bb3e.jpeg?rlkey=7zmbly2fami8c9nvsygxm48xn&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/vceu1bxj6vtvys2x6o0wn/0c51cf0f-eb0c-4a02-917a-359ef6a89fc2.jpeg?rlkey=0aigyflnt8fpnbi7s1he67fjx&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/0selposdld0955atcvolm/11ca643a-5cab-4459-8999-139694ef6303.jpeg?rlkey=vjqar4tu3fh7b70af2d0iueie&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/9nh3k0bl9o9a76p9v48aw/19dfbfcd-a852-4cca-a9d3-60f470fe19ae.jpeg?rlkey=zbmw6wkd0di9s66178scscoyh&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/rx75ejm5haie41bngo6mh/22a149d5-3ba2-470e-b765-815fafdb79d8.jpeg?rlkey=w2n3k9dtgek415zuluslyhjfv&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/8kwglf4q5t1fhdyjdd4gu/2394bc58-e1b0-4772-9034-e8dcf6c2edf5.jpeg?rlkey=xoobtx65or4eyi60le9r2uljl&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/alhur86qkwzgienslnvvi/26f182d9-267f-48c3-adae-6f6c9dd7b6e1.jpeg?rlkey=k48nwtbwzw1nhgs77jgqchvbv&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/sjaw8ga30p3yyval56xet/280a1d2a-da91-4d28-9b0b-fcfe5e061c29.jpeg?rlkey=4fj56wc3uk9os23b7g8an3ja0&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/wcehu9mh285m7hde1zwaz/291b5fbe-0215-4734-a9ab-806cc63fea11.jpeg?rlkey=eg3dj2vb38tuvseagta3oo2cw&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/2thhgzlvefswjx725n8m4/302f3194-c690-49e6-abea-d733523975c2.jpeg?rlkey=mvck9poz1kq6cggjbmioe6cqm&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/7hym0k129kyjnkcrxxwnh/3169db4f-1f6b-4f8d-8c58-dbaf08471d0f.jpeg?rlkey=hyokefsxsn1h3o704yyv9pwru&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/rs81z3socfpmcwszdj8kt/3bf13f4b-7e60-409e-bf77-79998c586e3e.jpeg?rlkey=e3xpdo1pg9vk7yytvy2yie9n6&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/pv7bexp1vg823kkxxmysf/3c59feaf-0218-40e6-8ca3-0d8c12557d92.jpeg?rlkey=hd9ch21et5l82c5piyv3t02l3&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/wpb9m4h8uob0vr5yygcsm/3e135e72-4074-4351-a90d-38a48c118593.jpeg?rlkey=5llhog1q8m0cztdxdve4xxui5&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/4bbv62hxz8e70pzwaf6vo/3faf1197-c497-4157-b177-cb66f9ad28cb.jpeg?rlkey=4y1qlv7w9utve6w18mmo00tq3&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/ax8c2c1dakc948e9gvvjo/3fcd1ea0-de34-4648-a52f-17bf238ff0f3.jpeg?rlkey=dr09r7r0ck3oqhcb7utbaywbf&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/t0roojr6qwshesfjbj5zc/53265A69-6C7A-47DB-88E5-34A8A4867918.jpeg?rlkey=9w7z357qwmpak8qdjsmgdzrgv&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/t47yc5y485sq2bh24zhc7/57d208ef-7ab1-46f7-9f6d-9a01e2c75b94.jpeg?rlkey=r8abyfywk1gi8wjfatmx9ihh4&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/b3t5asqqgappjo4ghi88k/667b4c22-578b-4a03-975c-3fbc0c3f1ddc.jpeg?rlkey=c4rrre9vkok0z8rbttzqv0ifx&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/rna08hhgtobsexl9ao9qh/6d3c56a7-61db-4eb9-91d5-6b11427f4bdf.jpeg?rlkey=0r5y00sdtpwu25c4xrcw9x7m9&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/bha27zmd5iregcjsdrnwe/709c92d3-e317-44dd-b62d-3217a3c7d5aa.jpeg?rlkey=jenu6ypw7jnr4d0m776ck84w5&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/0gvdzri96l6tyi79z76g5/723c6fdb-fc1d-408c-94cc-608a44a94d53.jpeg?rlkey=c989hbwjoumcuxuk7nm17id21&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/21dejoen277uxa6of3f7m/81f54ca1-d3c6-458d-ac67-b7e72a0a07c5.jpeg?rlkey=1puoyhzryvect1ffiq3hll7db&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/2o361s7bt0ghmnkr69ano/8da4062c-0d8d-48a6-924f-154756042c76.jpeg?rlkey=7dvj4uj3d8i9g8qattu8ilsap&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/9hu40q8xfq5i0bml6mpnq/6d655644-9994-4d51-aaf4-ede89e016b4b.jpeg?rlkey=bjqfdcpwrzsnanmhcmyu1wvfd&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/0fqpm1447jcf4gpsfqhs4/9a94ad06-69e2-4a16-83ac-b9935252b153.jpeg?rlkey=besna6o9uj70f8lxvl6b89uv4&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/3sffoudi1nkexq2jhhnzn/cbd5c364-631d-405a-8ef5-770931aea57a.jpeg?rlkey=sv0zfqywtl6lc2a6wna67sf9a&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/v09u4fv9nifox4bjqb6mt/cf75b7ea-0955-410f-8761-1417ae9d8d6e.jpeg?rlkey=12sjcwf98wum2at33p60m9kwj&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/hx5zmum2p7x03ujgr7elv/d1d06d12-59b6-424e-93e0-0a53eb36a2a0.jpeg?rlkey=9c2f2ai21qu5v68njinjsbfvb&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/w2pmguuzm00y04x9hvnj1/d39a52ef-0d78-46dc-bed8-4f7194253910.jpeg?rlkey=i9nzqsattrjszu1luvbjszbtx&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/3gay7cw5yjw08b7o5x19n/d88be921-3a6c-48d0-abf0-f686ff8e765c.jpeg?rlkey=t48c36btil7r4ooltzsn54oak&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/wbzsavtumze3o8ljrnf52/e21dc1e5-243f-4736-9b80-ba0be39e2b75.jpeg?rlkey=r36jdkgwjeh5cj4rgys80zqau&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/0kfjgszhivow6p7ba8p8f/e9c27a28-21cd-4ba3-b2d1-477ec2732b1b.jpeg?rlkey=x1xfvn3hzvvlic5ht0znc7jue&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/ptwtbavp66up1simxdzt4/efbc7d08-478e-4a9d-8c9c-cb5158017ccd.jpeg?rlkey=qqafqpzhdo4rpvr12wlr4ymce&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/g43fb01c46a064uhom06s/f1e05aaa-09a1-4b24-9d15-0f44a08db794.jpeg?rlkey=b27dzbkahfdki54kzs502uill&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/bqjm7ptqeqapji0ybpq9e/d78ac8f1-8287-4c6d-92ac-7f6f81520654.jpeg?rlkey=wcxpb7mb6tnl7rq7vrhpdkcex&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/0v9qcw6x7jbrz7b8oybsf/f2655320-29ad-443d-b410-289025f834f4.jpeg?rlkey=xc36bjmsnhghhbk6x0cy5qifd&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/sdbdnoc8v5hqjuso9dr8z/f5a84cfb-78be-4f64-b904-7fb2c5d9023c.jpeg?rlkey=awodq2potza2bzfxl7mn7onba&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/qqvg0mugas1klszfv3b16/ffb744c1-e760-4e33-8924-e12febf1afa0.jpeg?rlkey=kxe7505hhm11osrm2u5et10nv&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/it8jhipkb1ln0ogklttlm/IMG_0062.jpeg?rlkey=t1bwfrd0dz9gmyjk0nhar4kx7&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/hmgx7xf7m1cthn3zbbsvc/IMG_7520.jpeg?rlkey=yk19gera1vr4upippaycy27a5&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/957cdt98qm1s1ryxjr5me/IMG_1405.jpeg?rlkey=ynyppjud8n65568dkc3iywbuu&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/ynlo1z6uq972boim0omg6/IMG_3358.jpeg?rlkey=lj84bc47hd8jmwagoj1w8ocd5&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/4jgrr24f0sop185yignzt/IMG_3359.jpeg?rlkey=gr9ezwm6w4wi7x6elueo7w3be&raw=1' },
+	  { type: 'image', url: 'https://www.dropbox.com/scl/fi/7bl12xq9suc4k27z96csn/IMG_7859.jpeg?rlkey=t78n5lj6t9l06clo9eq13eos1&raw=1' },
+    ],
+  },
+  {
+    label: 'Vejez',
+    items: [
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/lsvfdssksp95jjnznlmtx/1538fa3f-2af7-493d-970d-ccf0fafd38a8.jpeg?rlkey=deuypu0loeh2zh2e3xl7ipd8j&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/nqemrak7laz8upj5ejawx/12e66899-4fb7-43be-8a17-c05d2f107e9a.jpeg?rlkey=tc8oo77tn5kfkvtnys1622e0g&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/hr1nj8r978w51gut0ux6j/476abe88-cc5e-49d4-8341-34667ed864c8.jpeg?rlkey=l2v9cl7hmy7h2oaw1ghvpsb96&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/q8x42ulf8y1caohzmr2gz/68053d30-5e72-435d-8e56-51762115b4d5.jpeg?rlkey=4clujw5je1anmf42ul6pga3sm&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/9m9jon79jj7p3nqmzt58o/7f366397-687a-4c15-8b40-f9f2ac3c56ba.jpeg?rlkey=3c2wldvpaz55m16ep98k1yems&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/3lu6xdp8d42d2sw1xqimo/8079c16a-9bc6-4313-961d-399a47ce4c00.jpeg?rlkey=bciq8mn98yjk7ylgx7uj4x4cp&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/sztjar8pk7t4e7w5yoaeo/8825484f-d6e5-446c-a7f1-4be40d46aadc.jpeg?rlkey=nw9haqyki47zyz9evyauadspc&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/yy9nhqutn70lyyys0gli0/8a077d05-a9b3-4e57-8e34-b345614c807b.jpeg?rlkey=oxiod960hdu47qpowt1i4a9ti&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/h4exfp7a1sv2ddza6pl62/a977c3f9-522e-494e-9a70-075a89c42c3b.jpeg?rlkey=lv5yl9y1j4pyqypt77h42t7to&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/wexa85mvc6jfokiwvjgfn/b1b0d6db-0e71-4f1b-9761-d149f33f82a2.jpeg?rlkey=c3bkql2uh3xszoioi0y1jw6c1&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/blkzrsntp5icyzkm2pnc7/caf63a5b-64fe-4e0c-b7eb-6fba6ecc7759.jpeg?rlkey=6hr1dawirpxaq00r8whh5vuk4&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/wkdr83zxmz71rh3danrew/cd6dbb5d-5bc6-4fa5-8800-58efa9c8711d.jpeg?rlkey=o8v5b6tax2hm43gze031oy4tv&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/ud8inbdg5gtemrhl8jf9q/fdd2fbf0-4c63-42f6-bd44-5c30c93f5d93.jpeg?rlkey=8l3ld3t7zmo79dhx83a9dht6v&raw=1' },
+      { type: 'image', url: 'https://www.dropbox.com/scl/fi/43vlv9ezuo33ip4ev6ap7/z.jpeg?rlkey=uznq7re4nvdfjumh35q2dgucg&raw=1' },
+    ],
+  },
+];
+
+
+// Flatten all stages in chronological order for the carousel
+const MEDIA_ITEMS = LIFE_STAGES.flatMap(stage => stage.items);
+
+// ─────────────────────────────────────────────
+//  Google Drive URL Resolver
+// ─────────────────────────────────────────────
+function resolveUrl(url, type) {
+  const driveMatch = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (driveMatch) {
+    const id = driveMatch[1];
+    if (type === 'video') {
+      // Drive preview iframe URL — only reliable CORS-safe option for video embed
+      return { embed: `https://drive.google.com/file/d/${id}/preview`, direct: `https://drive.google.com/uc?export=download&id=${id}` };
+    }
+    // thumbnail endpoint supports CORS for <img> sub-resources
+    return `https://drive.google.com/thumbnail?id=${id}&sz=w1000`;
+  }
+  if (type === 'video') return { embed: url, direct: url };
+  return url;
+}
+
+// ─────────────────────────────────────────────
+//  Layout Engine
+// ─────────────────────────────────────────────
+const COLS_PORTRAIT  = 3;
+const ROWS_LANDSCAPE = 1;
+const JITTER_ROT     = 8;   // degrees
+const JITTER_PX      = 15;  // pixels
+const ITEMS_PER_SLIDE = 9;  // cards per swiper slide
+const POLAROID_BOTTOM = 32;
+function seededRandom(seed) {
+  let s = seed;
+  return function() {
+    s = (s * 16807 + 0) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+}
+
+function rand(rng, min, max) {
+  return min + rng() * (max - min);
+}
+
+function buildSlideLayout(itemsInSlide, slideIndex) {
+  const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const rng = seededRandom(slideIndex * 997 + 1);
+
+  let positions = [];
+
+  if (isPortrait) {
+    // 2-column vertical grid
+    const cols = COLS_PORTRAIT;
+    const cellW = vw / cols;
+    const cardW = cellW * 0.82;
+    const cardH = cardW * 1.1;
+    const cellH = cardH + 20;
+
+    for (let i = 0; i < itemsInSlide; i++) {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const baseX = col * cellW + (cellW - cardW) / 2;
+      const baseY = row * cellH + 20;
+      const rot   = rand(rng, -JITTER_ROT, JITTER_ROT);
+      const ox    = rand(rng, -JITTER_PX, JITTER_PX);
+      const oy    = rand(rng, -JITTER_PX, JITTER_PX);
+      positions.push({ x: baseX + ox, y: baseY + oy, w: cardW, h: cardH, rot });
+    }
+  } else {
+    // 2-row horizontal grid
+    const rows = ROWS_LANDSCAPE;
+    const cellH = vh / rows;
+    const cardH = cellH * 0.78;
+    const cardW = cardH * 0.85;
+    const cellW = cardW + 20;
+
+    for (let i = 0; i < itemsInSlide; i++) {
+      const row = i % rows;
+      const col = Math.floor(i / rows);
+      const baseX = col * cellW + 20;
+      const baseY = row * cellH + (cellH - cardH) / 2;
+      const rot   = rand(rng, -JITTER_ROT, JITTER_ROT);
+      const ox    = rand(rng, -JITTER_PX, JITTER_PX);
+      const oy    = rand(rng, -JITTER_PX, JITTER_PX);
+      positions.push({ x: baseX + ox, y: baseY + oy, w: cardW, h: cardH, rot });
+    }
+  }
+
+  return positions;
+}
+
+// ─────────────────────────────────────────────
+//  Slide & Card DOM Builder
+// ─────────────────────────────────────────────
+
+// IntersectionObserver-based lazy loader (replaces Swiper lazy)
+const lazyObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const el = entry.target;
+    if (el.dataset.src) {
+      el.src = el.dataset.src;
+      delete el.dataset.src;
+      lazyObserver.unobserve(el);
+    }
+  });
+}, { rootMargin: '0px' });
+
+function createMediaEl(item, lazy) {
+  const src = resolveUrl(item.url, item.type);
+
+  if (item.type === 'video') {
+    const iframe = document.createElement('iframe');
+    iframe.src = src.embed;
+    iframe.allow = 'autoplay';
+    iframe.setAttribute('allowfullscreen', '');
+    return iframe;
+  } else {
+    const img = document.createElement('img');
+    img.alt = '';
+    if (lazy) {
+      img.dataset.src = typeof src === 'string' ? src : src.direct;
+      lazyObserver.observe(img);
+    } else {
+      img.src = typeof src === 'string' ? src : src.direct;
+    }
+    img.addEventListener('load', () => img.classList.add('loaded'));
+    return img;
+  }
+}
+
+function buildSlides() {
+  const wrapper = document.getElementById('swiperWrapper');
+  wrapper.innerHTML = '';
+
+  const chunks = [];
+  for (let i = 0; i < MEDIA_ITEMS.length; i += ITEMS_PER_SLIDE) {
+    chunks.push(MEDIA_ITEMS.slice(i, i + ITEMS_PER_SLIDE));
+  }
+
+  chunks.forEach((chunk, slideIdx) => {
+    const slide = document.createElement('div');
+    slide.className = 'swiper-slide';
+
+    const positions = buildSlideLayout(chunk.length, slideIdx);
+    const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+
+    // Compute slide natural size for scroll axis
+    let slideContentSize = 0;
+    if (isPortrait) {
+      positions.forEach(p => {
+        const bottom = p.y + p.h + POLAROID_BOTTOM + JITTER_PX + 20;
+        if (bottom > slideContentSize) slideContentSize = bottom;
+      });
+      slide.style.height = slideContentSize + 'px';
+      slide.style.width  = '100vw';
+    } else {
+      positions.forEach(p => {
+        const right = p.x + p.w + JITTER_PX + 20;
+        if (right > slideContentSize) slideContentSize = right;
+      });
+      slide.style.width  = slideContentSize + 'px';
+      slide.style.height = '100vh';
+    }
+
+    chunk.forEach((item, i) => {
+      const pos   = positions[i];
+      const lazy  = slideIdx > 0;
+      const card  = document.createElement('div');
+      card.className = 'card';
+      card.style.left      = pos.x + 'px';
+      card.style.top       = pos.y + 'px';
+      card.style.width     = pos.w + 'px';
+      card.style.height    = pos.h + POLAROID_BOTTOM + 'px';
+      card.style.transform = `rotate(${pos.rot}deg)`;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'media-wrap';
+      wrap.style.height = pos.h + 'px';
+
+      const el = createMediaEl(item, lazy);
+      wrap.appendChild(el);
+
+      if (item.type === 'video') {
+        const icon = document.createElement('div');
+        icon.className = 'play-icon';
+        wrap.appendChild(icon);
+      }
+
+      card.appendChild(wrap);
+      slide.appendChild(card);
+
+      // Mobile: long-press (1s) via Hammer.js → open fullscreen, release → close
+      const hammer = new Hammer(card, { recognizers: [[Hammer.Press, { time: 700 }]] });
+      hammer.on('press', () => openFullscreen(item));
+      hammer.on('pressup', closeFullscreen);
+
+      // Desktop: double-click → open fullscreen; click outside modal → close
+      card.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        openFullscreen(item);
+      });
+    });
+
+    wrapper.appendChild(slide);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Pseudo-Fullscreen Modal
+// ─────────────────────────────────────────────
+const fsModal   = document.getElementById('fs-modal');
+const fsContent = document.getElementById('fs-content');
+const fsClose   = document.getElementById('fs-close');
+let   fsVideo   = null;
+
+function openFullscreen(item) {
+  fsContent.innerHTML = '';
+  const src = resolveUrl(item.url, item.type);
+
+  if (item.type === 'video') {
+    // Use iframe preview in fullscreen too — avoids CORS on Drive video streams
+    const iframe = document.createElement('iframe');
+    iframe.src = src.embed;
+    iframe.allow = 'autoplay; fullscreen';
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.style.width = '100vw';
+    iframe.style.height = '100vh';
+    iframe.style.border = 'none';
+    fsContent.appendChild(iframe);
+    fsVideo = null;
+  } else {
+    const img = document.createElement('img');
+    img.src = typeof src === 'string' ? src : src.direct;
+    img.alt = '';
+    fsContent.appendChild(img);
+    fsVideo = null;
+  }
+
+  fsModal.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeFullscreen() {
+  if (fsVideo) { fsVideo.pause(); fsVideo = null; }
+  // Remove iframe src to stop video playback inside it
+  const iframes = fsContent.querySelectorAll('iframe');
+  iframes.forEach(f => { f.src = ''; });
+  fsModal.classList.remove('active');
+  fsContent.innerHTML = '';
+  document.body.style.overflow = '';
+}
+
+fsClose.addEventListener('click', closeFullscreen);
+fsModal.addEventListener('click', closeFullscreen);
+fsModal.addEventListener('pointerdown', (e) => {
+  if (e.target === fsModal) closeFullscreen();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeFullscreen();
+});
+
+// ─────────────────────────────────────────────
+//  Swiper Initialization
+// ─────────────────────────────────────────────
+let swiperInstance = null;
+
+function initSwiper() {
+  const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+
+  if (swiperInstance) {
+    swiperInstance.destroy(true, true);
+    swiperInstance = null;
+  }
+
+  buildSlides();
+
+  swiperInstance = new Swiper('#mainSwiper', {
+    direction: isPortrait ? 'vertical' : 'horizontal',
+    slidesPerView: 'auto',
+    freeMode: {
+      enabled: true,
+      momentum: true,
+      momentumRatio: 2,
+      momentumVelocityRatio: 2.5,
+      momentumBounce: false,
+      sticky: false,
+    },
+    touchReleaseOnEdges: true,
+    resistanceRatio: 0,
+    speed: 800,
+    grabCursor: false,
+    on: {
+      touchStart() {
+        if (swiperInstance && swiperInstance.animating) {
+          swiperInstance.stopAutoplay && swiperInstance.stopAutoplay();
+          // Immediate stop
+          const wrapper = swiperInstance.wrapperEl;
+          const style = window.getComputedStyle(wrapper);
+          const matrix = new DOMMatrix(style.transform);
+          wrapper.style.transition = 'none';
+          if (isPortrait) {
+            wrapper.style.transform = `translateY(${matrix.m42}px)`;
+          } else {
+            wrapper.style.transform = `translateX(${matrix.m41}px)`;
+          }
+          swiperInstance.setTransition(0);
+        }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+//  Orientation Change Handler
+// ─────────────────────────────────────────────
+let orientationTimer = null;
+
+function onOrientationChange() {
+  clearTimeout(orientationTimer);
+  orientationTimer = setTimeout(() => {
+    initSwiper();
+  }, 120);
+}
+
+window.addEventListener('resize', onOrientationChange);
+window.matchMedia('(orientation: portrait)').addEventListener('change', onOrientationChange);
+
+// ─────────────────────────────────────────────
+//  Boot
+// ─────────────────────────────────────────────
+initSwiper();
+</script>
+</body>
+</html>
