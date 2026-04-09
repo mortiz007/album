@@ -167,7 +167,26 @@
 </style>
 </head>
 <body>
+<script>
+    // Función para activar el modo pantalla completa
+    function activarPantallaCompleta() {
+        const elem = document.documentElement; // Selecciona toda la página
 
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) { /* Safari */
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) { /* IE11 */
+            elem.msRequestFullscreen();
+        }
+
+        // Opcional: Eliminar el listener después de que se active una vez
+        document.removeEventListener('click', activarPantallaCompleta);
+    }
+
+    // Escucha un clic en cualquier parte del documento
+    document.addEventListener('click', activarPantallaCompleta);
+</script>
 <div id="fs-modal">
   <button id="fs-close">✕</button>
   <div id="fs-content"></div>
