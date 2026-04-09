@@ -174,9 +174,11 @@
 
         if (elem.requestFullscreen) {
             elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) { /* Safari */
+        } else if (elem.webkitRequestFullscreen) { /* Safari / Chrome / Opera / Edge Chromium */
             elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) { /* IE11 */
+        } else if (elem.mozRequestFullScreen) { /* Firefox */
+            elem.mozRequestFullScreen();
+        } else if (elem.msRequestFullscreen) { /* IE11 / Edge antiguo */
             elem.msRequestFullscreen();
         }
 
